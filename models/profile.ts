@@ -1,4 +1,5 @@
 export type SnowSportType = "ski" | "snowboard" | "both";
+export type AgeGroup = "minor" | "adult";
 
 export interface Profile {
   id: string;
@@ -11,6 +12,7 @@ export interface Profile {
   avatarUrl: string | null;
   latitude: number | null;
   longitude: number | null;
+  ageGroup: AgeGroup;
   onboardingCompleted: boolean;
   createdAt: string;
   updatedAt: string;

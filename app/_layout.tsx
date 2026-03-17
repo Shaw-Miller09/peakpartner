@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { MeetupProvider } from "@/components/meetups/MeetupProvider";
 import { useAuth } from "@/hooks/useAuth";
 
 function RootNavigator() {
@@ -29,6 +30,7 @@ function RootNavigator() {
       <Stack.Screen name="(onboarding)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="meetups/create" options={{ presentation: "modal" }} />
+      <Stack.Screen name="meetups/[meetupId]" />
     </Stack>
   );
 }
@@ -36,7 +38,9 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootNavigator />
+      <MeetupProvider>
+        <RootNavigator />
+      </MeetupProvider>
     </AuthProvider>
   );
 }

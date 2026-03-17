@@ -9,7 +9,7 @@ export default function SignInScreen() {
 
   return (
     <Screen
-      title="Meet your next mountain crew"
+      title="Find your next ski partner"
       subtitle="PeakPartner connects skiers and snowboarders for meetups, shared laps, and session tracking."
     >
       <AuthForm

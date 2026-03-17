@@ -21,10 +21,12 @@ app/
 components/
   auth/                Auth provider and auth form
   common/              Shared screen and placeholder components
+  meetups/             Meetup UI and local domain provider
   onboarding/          Onboarding-specific UI helpers
 hooks/                 App hooks
 lib/                   External clients and app services
 models/                Frontend domain models
+services/              Mock seed data and domain logic
 supabase/
   schema.sql           Database schema and starter RLS policies
 ```
@@ -70,17 +72,32 @@ npm run android
 3. Enable Email auth in Supabase Authentication.
 4. Replace the environment variables with your project URL and anon key.
 
-## Current scaffold coverage
+## Meetup system status
 
-- Supabase client setup with persistent auth storage
-- Auth screens for sign in and sign up
-- Three-step onboarding flow scaffold
-- Core route groups for app navigation
-- Placeholder screens for home, meetup discovery, create meetup, chat, profile, video posts, and GPS tracking
-- Frontend profile and meetup models
-- SQL schema for social, meetup, messaging, ratings, media, and GPS session data
+Fully implemented in-app:
+
+- Meetup discovery screen with cards, filters, and empty states
+- Create meetup flow with meetup type, group size, notes, and computed age-pool logic
+- Meetup detail screen with participant list and action states
+- Join logic for `public_open`, `public_approval`, and `private`
+- Host approval management for pending join requests
+- Public age-safety gating in discovery and join eligibility
+- Connection-aware private meetup visibility and access
+
+Implemented as mocked local domain state for this pass:
+
+- Meetup data persistence
+- Profile, connection, participant, and join-request records
+- Current meetup actions and updates
+
+Supabase-ready but not fully wired yet:
+
+- `lib/supabase.ts` remains the backend entry point
+- [supabase/schema.sql](/Users/shawmiller/Developer/projects/peakpartner/supabase/schema.sql) now includes the extra meetup and age-group fields used by the UI
+- The meetup feature is structured around typed models plus a swappable service layer in [services/meetups](/Users/shawmiller/Developer/projects/peakpartner/services/meetups)
 
 ## Notes
 
 - The onboarding completion flag is currently stored in local app state to keep the scaffold simple. The intended next step is persisting that state in `profiles.onboarding_completed`.
-- The placeholder screens are intentionally light on UI and optimized for future implementation work.
+- Meetup persistence is mocked in memory through the provider in [components/meetups/MeetupProvider.tsx](/Users/shawmiller/Developer/projects/peakpartner/components/meetups/MeetupProvider.tsx). Swapping that provider to Supabase queries and mutations is the intended next backend step.
+- Age-gating for public stranger discovery is implemented in the application logic for this pass. The schema includes notes for mirroring that rule at the query or database-policy layer later.

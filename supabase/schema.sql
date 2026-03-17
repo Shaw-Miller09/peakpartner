@@ -1,8 +1,11 @@
 create extension if not exists "pgcrypto";
 
+create type age_group as enum ('minor', 'adult');
 create type sport_type as enum ('ski', 'snowboard', 'both', 'mixed');
 create type connection_status as enum ('pending', 'accepted', 'blocked');
 create type meetup_status as enum ('draft', 'open', 'full', 'completed', 'cancelled');
+create type meetup_type as enum ('public_open', 'public_approval', 'private');
+create type meetup_age_pool as enum ('minor_only', 'adult_only', 'connections_only');
 create type join_request_status as enum ('pending', 'approved', 'rejected', 'cancelled');
 
 create or replace function public.set_updated_at()
@@ -26,6 +29,7 @@ create table if not exists public.profiles (
   avatar_url text,
   latitude double precision,
   longitude double precision,
+  age_group age_group not null default 'adult',
   onboarding_completed boolean not null default false,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
@@ -49,9 +53,13 @@ create table if not exists public.meetups (
   mountain_name text not null,
   scheduled_for timestamptz not null,
   meeting_point text,
-  max_participants integer,
+  max_group_size integer,
   skill_level text,
+  meetup_type meetup_type not null default 'public_open',
   sport_type sport_type not null default 'mixed',
+  notes text,
+  age_pool meetup_age_pool not null default 'adult_only',
+  invited_profile_ids uuid[] not null default '{}',
   latitude double precision,
   longitude double precision,
   status meetup_status not null default 'open',
@@ -197,7 +205,14 @@ using (auth.uid() = host_id);
 
 create policy "meetup_participants_visible_to_authenticated" on public.meetup_participants
 for select to authenticated
-using (true);
+using (
+  auth.uid() = profile_id
+  or exists (
+    select 1
+    from public.meetups m
+    where m.id = meetup_participants.meetup_id and m.host_id = auth.uid()
+  )
+);
 
 create policy "meetup_participants_manage_own" on public.meetup_participants
 for all to authenticated
@@ -205,9 +220,38 @@ using (auth.uid() = profile_id)
 with check (auth.uid() = profile_id);
 
 create policy "meetup_join_requests_manage_own" on public.meetup_join_requests
-for all to authenticated
-using (auth.uid() = profile_id)
+for insert to authenticated
 with check (auth.uid() = profile_id);
+
+create policy "meetup_join_requests_select_self_or_host" on public.meetup_join_requests
+for select to authenticated
+using (
+  auth.uid() = profile_id
+  or exists (
+    select 1
+    from public.meetups m
+    where m.id = meetup_join_requests.meetup_id and m.host_id = auth.uid()
+  )
+);
+
+create policy "meetup_join_requests_update_self_or_host" on public.meetup_join_requests
+for update to authenticated
+using (
+  auth.uid() = profile_id
+  or exists (
+    select 1
+    from public.meetups m
+    where m.id = meetup_join_requests.meetup_id and m.host_id = auth.uid()
+  )
+)
+with check (
+  auth.uid() = profile_id
+  or exists (
+    select 1
+    from public.meetups m
+    where m.id = meetup_join_requests.meetup_id and m.host_id = auth.uid()
+  )
+);
 
 create policy "messages_visible_to_members" on public.messages
 for select to authenticated
@@ -266,3 +310,9 @@ with check (
     where ts.id = route_points.tracked_session_id and ts.profile_id = auth.uid()
   )
 );
+
+-- Notes for implementation:
+-- 1. Public stranger discovery age gating should be enforced in application queries or a secure view
+--    by comparing profiles.age_group to meetups.age_pool.
+-- 2. Private meetup visibility should be restricted to invited_profile_ids and accepted connections.
+--    That connection-aware rule is left to the application layer in this pass.
