@@ -20,7 +20,8 @@ $$;
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
-  username text not null unique,
+  email text,
+  username text unique,
   full_name text,
   bio text,
   home_mountain text,
@@ -34,6 +35,9 @@ create table if not exists public.profiles (
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.profiles add column if not exists email text;
+alter table public.profiles alter column username drop not null;
 
 create table if not exists public.connections (
   id uuid primary key default gen_random_uuid(),

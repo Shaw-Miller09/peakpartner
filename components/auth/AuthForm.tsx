@@ -18,10 +18,23 @@ export function AuthForm({ mode, onSubmit, alternateLabel, onAlternatePress }: A
   const submitLabel = mode === "sign-in" ? "Sign In" : "Create Account";
 
   const handleSubmit = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail.includes("@")) {
+      Alert.alert("Invalid email", "Enter a valid email address.");
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert("Invalid password", "Password must be at least 6 characters.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      await onSubmit(email.trim(), password);
+      await onSubmit(normalizedEmail, password);
     } catch (error) {
+      console.error("[auth-form] submit failed", error);
       Alert.alert("Authentication failed", error instanceof Error ? error.message : "Please try again.");
     } finally {
       setIsSubmitting(false);

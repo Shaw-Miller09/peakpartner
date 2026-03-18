@@ -3,6 +3,7 @@ export type AgeGroup = "minor" | "adult";
 
 export interface Profile {
   id: string;
+  email?: string | null;
   username: string;
   fullName: string | null;
   bio: string | null;

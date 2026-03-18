@@ -1,21 +1,35 @@
 import { Link } from "expo-router";
 import { Pressable, StyleSheet, Text } from "react-native";
 
-import { PlaceholderCard } from "@/components/common/PlaceholderCard";
+import { FormField } from "@/components/common/FormField";
+import { PillSelector } from "@/components/common/PillSelector";
 import { Screen } from "@/components/common/Screen";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
+import { useAuth } from "@/hooks/useAuth";
+import type { SnowSportType } from "@/models/profile";
+
+const sportOptions: { label: string; value: SnowSportType }[] = [
+  { label: "Ski", value: "ski" },
+  { label: "Snowboard", value: "snowboard" },
+  { label: "Both", value: "both" }
+];
 
 export default function PreferencesScreen() {
+  const { onboardingDraft, updateOnboardingDraft } = useAuth();
+
   return (
     <Screen
       title="Riding preferences"
-      subtitle="Use this step to capture terrain preferences, meetup interests, and whether the athlete skis, snowboards, or both."
+      subtitle="Set the sport value that will be stored on the profile row."
     >
       <OnboardingProgress step={1} total={3} />
-      <PlaceholderCard
-        heading="Step 2: Preferences"
-        body="Wire this into profile persistence once the Supabase profile queries are implemented."
-      />
+      <FormField label="Sport">
+        <PillSelector
+          onChange={(sport) => updateOnboardingDraft({ sport })}
+          options={sportOptions}
+          selectedValue={onboardingDraft.sport}
+        />
+      </FormField>
       <Link href="/(onboarding)/permissions" asChild>
         <Pressable style={styles.button}>
           <Text style={styles.buttonLabel}>Continue</Text>

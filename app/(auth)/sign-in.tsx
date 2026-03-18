@@ -1,11 +1,15 @@
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 
 import { AuthForm } from "@/components/auth/AuthForm";
 import { Screen } from "@/components/common/Screen";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function SignInScreen() {
-  const { signIn } = useAuth();
+  const { hasCompletedOnboarding, session, signIn } = useAuth();
+
+  if (session) {
+    return <Redirect href={hasCompletedOnboarding ? "/(tabs)" : "/(onboarding)/welcome"} />;
+  }
 
   return (
     <Screen
@@ -16,7 +20,10 @@ export default function SignInScreen() {
         alternateLabel="Need an account? Create one"
         mode="sign-in"
         onAlternatePress={() => router.push("/(auth)/sign-up")}
-        onSubmit={signIn}
+        onSubmit={async (email, password) => {
+          await signIn(email, password);
+          router.replace("/");
+        }}
       />
     </Screen>
   );
