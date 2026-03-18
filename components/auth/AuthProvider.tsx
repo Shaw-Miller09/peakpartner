@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from "react";
 import { createContext, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { supabase } from "@/lib/supabase";
 import type { SnowSportType } from "@/models/profile";
@@ -14,6 +15,8 @@ type OnboardingDraft = {
   name: string;
   sport: SnowSportType;
 };
+
+const ONBOARDING_DRAFT_STORAGE_KEY = "peakpartner:onboarding-draft";
 
 type AuthContextValue = {
   session: Session | null;
@@ -43,6 +46,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let isMounted = true;
 
     const bootstrap = async () => {
+      const storedDraft = await AsyncStorage.getItem(ONBOARDING_DRAFT_STORAGE_KEY);
+      if (storedDraft && isMounted) {
+        try {
+          const parsedDraft = JSON.parse(storedDraft) as Partial<OnboardingDraft>;
+          setOnboardingDraft((currentValue) => ({
+            ...currentValue,
+            ...parsedDraft
+          }));
+        } catch (error) {
+          console.error("[onboarding] failed to parse stored draft", error);
+        }
+      }
+
       const { data, error } = await supabase.auth.getSession();
       if (!isMounted) {
         return;
@@ -95,10 +111,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  useEffect(() => {
+    void AsyncStorage.setItem(ONBOARDING_DRAFT_STORAGE_KEY, JSON.stringify(onboardingDraft));
+  }, [onboardingDraft]);
+
   const loadProfileState = async (userId: string, email: string) => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("email, full_name, sport_type, onboarding_completed")
+      .select("id, email, name, sport, created_at")
       .eq("id", userId)
       .maybeSingle();
 
@@ -111,10 +131,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     setOnboardingDraft((currentValue) => ({
       email: data?.email ?? email,
-      name: data?.full_name ?? currentValue.name,
-      sport: (data?.sport_type as SnowSportType | undefined) ?? currentValue.sport
+      name: (data?.name as string | undefined) ?? currentValue.name,
+      sport: (data?.sport as SnowSportType | undefined) ?? currentValue.sport
     }));
-    setHasCompletedOnboarding(Boolean(data?.onboarding_completed));
+    setHasCompletedOnboarding(Boolean(data?.id));
     setIsLoading(false);
   };
 
@@ -182,11 +202,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (error) {
         throw error;
       }
-      setOnboardingDraft({
+      const clearedDraft = {
         email: "",
         name: "",
         sport: "ski"
-      });
+      } satisfies OnboardingDraft;
+      setOnboardingDraft(clearedDraft);
+      await AsyncStorage.removeItem(ONBOARDING_DRAFT_STORAGE_KEY);
     },
     updateOnboardingDraft: (draft) => {
       setOnboardingDraft((currentValue) => ({
@@ -195,11 +217,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }));
     },
     saveOnboardingProfile: async () => {
-      if (!session?.user.id) {
-        throw new Error("No active Supabase session. Complete email confirmation or sign in again.");
+      const {
+        data: { user },
+        error: userError
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.error("[onboarding] getUser failed", userError);
+        throw userError;
       }
 
-      if (!onboardingDraft.email && !session.user.email) {
+      if (!user?.id) {
+        throw new Error("No authenticated user found. Sign in again and retry onboarding.");
+      }
+
+      if (!onboardingDraft.email && !user.email) {
         throw new Error("Missing email for onboarding profile.");
       }
 
@@ -207,18 +239,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
         throw new Error("Name is required before finishing onboarding.");
       }
 
-      const generatedUsername = (onboardingDraft.email || session.user.email || `user-${session.user.id}`)
-        .split("@")[0]
-        .replace(/[^a-zA-Z0-9_]/g, "_")
-        .slice(0, 24);
-
       const payload = {
-        id: session.user.id,
-        email: onboardingDraft.email || session.user.email || "",
-        username: generatedUsername || `user_${session.user.id.slice(0, 8)}`,
-        full_name: onboardingDraft.name.trim(),
-        sport_type: onboardingDraft.sport,
-        onboarding_completed: true
+        id: user.id,
+        email: onboardingDraft.email || user.email || "",
+        name: onboardingDraft.name.trim(),
+        sport: onboardingDraft.sport
       };
 
       console.log("[onboarding] saving profile", payload);
@@ -226,7 +251,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const { data, error } = await supabase
         .from("profiles")
         .upsert(payload, { onConflict: "id" })
-        .select("id, email, full_name, sport_type, created_at, onboarding_completed")
+        .select("id, email, name, sport, created_at")
         .single();
 
       if (error) {
@@ -241,6 +266,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
 
       console.log("[onboarding] profile saved", data);
+      const nextDraft = {
+        email: data.email ?? payload.email,
+        name: data.name ?? payload.name,
+        sport: (data.sport as SnowSportType | undefined) ?? payload.sport
+      } satisfies OnboardingDraft;
+      setOnboardingDraft(nextDraft);
+      await AsyncStorage.setItem(ONBOARDING_DRAFT_STORAGE_KEY, JSON.stringify(nextDraft));
       setHasCompletedOnboarding(true);
     }
   };

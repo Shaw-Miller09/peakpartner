@@ -11,7 +11,7 @@ export function OnboardingProgress({ step, total }: OnboardingProgressProps) {
       {Array.from({ length: total }).map((_, index) => (
         <View
           key={index}
-          style={[styles.segment, index <= step ? styles.segmentActive : undefined]}
+          style={StyleSheet.compose(styles.segment, index <= step ? styles.segmentActive : undefined)}
         />
       ))}
     </View>

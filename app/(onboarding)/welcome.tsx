@@ -1,4 +1,5 @@
 import { Link } from "expo-router";
+import type { TextStyle, ViewStyle } from "react-native";
 import { Pressable, StyleSheet, Text, TextInput } from "react-native";
 
 import { FormField } from "@/components/common/FormField";
@@ -8,6 +9,12 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function WelcomeScreen() {
   const { onboardingDraft, updateOnboardingDraft } = useAuth();
+  const disabled = !onboardingDraft.name.trim();
+  const emailInputStyle = StyleSheet.flatten([styles.input, styles.inputDisabled]) as TextStyle;
+  const buttonStyle = StyleSheet.flatten([
+    styles.button,
+    disabled ? styles.buttonDisabled : undefined
+  ]) as ViewStyle;
 
   return (
     <Screen
@@ -20,7 +27,7 @@ export default function WelcomeScreen() {
           editable={false}
           placeholder="Email"
           placeholderTextColor="#7A8EA2"
-          style={[styles.input, styles.inputDisabled]}
+          style={emailInputStyle}
           value={onboardingDraft.email}
         />
       </FormField>
@@ -34,10 +41,7 @@ export default function WelcomeScreen() {
         />
       </FormField>
       <Link href="/(onboarding)/preferences" asChild>
-        <Pressable
-          disabled={!onboardingDraft.name.trim()}
-          style={[styles.button, !onboardingDraft.name.trim() ? styles.buttonDisabled : undefined]}
-        >
+        <Pressable disabled={disabled} style={buttonStyle}>
           <Text style={styles.buttonLabel}>Continue</Text>
         </Pressable>
       </Link>
